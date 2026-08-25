@@ -11,3 +11,7 @@ class InvalidCategoryError(PocketBudgetError):
 
 class InsufficientFundsError(PocketBudgetError):
     """Raised when an expense exceeds the account balance."""
+
+
+class CorruptedStorageError(PocketBudgetError):
+    """Raised when a save file is unreadable, malformed, or inconsistent."""

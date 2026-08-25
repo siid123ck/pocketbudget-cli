@@ -1,10 +1,12 @@
 """Domain: budgeting rules and protected account state."""
 
+from collections.abc import Sequence
 from datetime import date
 
 from pocketbudget.exceptions import InsufficientFundsError, InvalidCategoryError
 from pocketbudget.models import Transaction
 
+INCOME_CATEGORY = "income"
 ALLOWED_CATEGORIES: frozenset[str] = frozenset(
     {"food", "transport", "utilities", "entertainment"}
 )
@@ -38,6 +40,23 @@ class Account:
     def get_transactions(self) -> tuple[Transaction, ...]:
         """Read-only view of the history: a tuple of frozen records."""
         return tuple(self._transactions)
+
+    @classmethod
+    def from_history(cls, transactions: Sequence[Transaction]) -> "Account":
+        """Build an account by replaying records through the public API.
+
+        Every record is validated exactly like live user input; the
+        only difference is that historical dates are preserved instead
+        of being re-stamped with today's date.
+        """
+        account = cls()
+        for tx in transactions:
+            if tx.category == INCOME_CATEGORY:
+                account.add_income(tx.amount)
+            else:
+                account.add_expense(tx.amount, tx.category)
+            account._transactions[-1] = tx
+        return account
 
     def add_income(self, amount: float) -> None:
         """Add a positive amount to the balance and record it."""
