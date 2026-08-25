@@ -1,6 +1,9 @@
 """Domain: budgeting rules and protected account state."""
 
+from datetime import date
+
 from pocketbudget.exceptions import InsufficientFundsError, InvalidCategoryError
+from pocketbudget.models import Transaction
 
 ALLOWED_CATEGORIES: frozenset[str] = frozenset(
     {"food", "transport", "utilities", "entertainment"}
@@ -22,6 +25,7 @@ class Account:
         if balance < 0:
             raise ValueError("Initial balance cannot be negative.")
         self._balance = float(balance)
+        self._transactions: list[Transaction] = []
         self._budgets: dict[str, float] = {
             category.casefold(): limit for category, limit in (budgets or {}).items()
         }
@@ -31,10 +35,17 @@ class Account:
         """Current balance (read-only)."""
         return self._balance
 
+    def get_transactions(self) -> tuple[Transaction, ...]:
+        """Read-only view of the history: a tuple of frozen records."""
+        return tuple(self._transactions)
+
     def add_income(self, amount: float) -> None:
-        """Add a positive amount to the balance."""
+        """Add a positive amount to the balance and record it."""
         self._validate_amount(amount)
         self._balance += amount
+        self._transactions.append(
+            Transaction(amount=amount, category="income", date=date.today())
+        )
 
     def add_expense(self, amount: float, category: str) -> str | None:
         """Record an expense; returns an over-budget warning or ``None``."""
@@ -49,6 +60,9 @@ class Account:
                 f"Expense of ${amount:.2f} exceeds balance of ${self._balance:.2f}."
             )
         self._balance -= amount
+        self._transactions.append(
+            Transaction(amount=amount, category=key, date=date.today())
+        )
         return self._over_budget_warning(key, amount)
 
     @staticmethod
