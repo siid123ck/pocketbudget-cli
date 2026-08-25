@@ -16,6 +16,8 @@ def save_account(account: Account, path: Path = DEFAULT_DATA_PATH) -> Path:
     """Write the account state to ``path`` (creating folders) and return it."""
     payload = {
         "balance": account.balance,
+        "opening_balance": account.opening_balance,
+        "budgets": account.budgets,
         "transactions": [
             {
                 "amount": tx.amount,
@@ -49,7 +51,14 @@ def load_account(path: Path = DEFAULT_DATA_PATH) -> Account:
         if not isinstance(raw_transactions, list):
             raise TypeError("transactions must be a list.")
         history = [_parse_transaction(raw) for raw in raw_transactions]
-        account = Account.from_history(history)
+        raw_budgets = payload.get("budgets", {})
+        if not isinstance(raw_budgets, dict):
+            raise TypeError("budgets must be an object.")
+        budgets = {key: float(value) for key, value in raw_budgets.items()}
+        opening = float(payload.get("opening_balance", 0.0))
+        account = Account.from_history(
+            history, budgets=budgets, opening_balance=opening
+        )
     except (
         json.JSONDecodeError,
         KeyError,
