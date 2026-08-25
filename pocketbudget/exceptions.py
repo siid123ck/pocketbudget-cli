@@ -5,6 +5,10 @@ class PocketBudgetError(Exception):
     """Base class for all PocketBudget domain errors."""
 
 
+class InvalidAmountError(PocketBudgetError, ValueError):
+    """Raised when an amount or limit is not a valid positive number."""
+
+
 class InvalidCategoryError(PocketBudgetError):
     """Raised when an expense uses a category that is not allowed."""
 

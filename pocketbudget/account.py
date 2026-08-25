@@ -3,7 +3,11 @@
 from collections.abc import Sequence
 from datetime import date
 
-from pocketbudget.exceptions import InsufficientFundsError, InvalidCategoryError
+from pocketbudget.exceptions import (
+    InsufficientFundsError,
+    InvalidAmountError,
+    InvalidCategoryError,
+)
 from pocketbudget.models import Transaction
 
 INCOME_CATEGORY = "income"
@@ -25,7 +29,7 @@ class Account:
         self, balance: float = 0.0, budgets: dict[str, float] | None = None
     ) -> None:
         if balance < 0:
-            raise ValueError("Initial balance cannot be negative.")
+            raise InvalidAmountError("Initial balance cannot be negative.")
         self._opening_balance = float(balance)
         self._balance = float(balance)
         self._transactions: list[Transaction] = []
@@ -56,7 +60,7 @@ class Account:
                 f"Unknown category {category!r}. Allowed: {sorted(ALLOWED_CATEGORIES)}"
             )
         if limit <= 0:
-            raise ValueError(f"Budget limit must be positive, got {limit}.")
+            raise InvalidAmountError(f"Budget limit must be positive, got {limit}.")
         self._budgets[key] = float(limit)
 
     def remaining_budget(self, category: str) -> float | None:
@@ -95,12 +99,35 @@ class Account:
             account._transactions[-1] = tx
         return account
 
+    def apply_batch(
+        self, ops: Sequence[tuple[str, float, str]]
+    ) -> tuple[str | None, ...]:
+        """Apply every ("income"|"expense", amount, category) op or none of them.
+
+        The batch runs against a trial copy first; if any operation is
+        rejected, this account's balance and history stay untouched.
+        """
+        trial = Account(balance=self._balance, budgets=dict(self._budgets))
+        trial._transactions = list(self._transactions)
+        warnings: list[str | None] = []
+        for kind, amount, category in ops:
+            if kind == "income":
+                trial.add_income(amount, category)
+                warnings.append(None)
+            elif kind == "expense":
+                warnings.append(trial.add_expense(amount, category))
+            else:
+                raise ValueError(f"Unknown operation kind {kind!r}.")
+        self._balance = trial._balance
+        self._transactions = trial._transactions
+        return tuple(warnings)
+
     def add_income(self, amount: float, category: str = INCOME_CATEGORY) -> None:
         """Add a positive amount to the balance and record it."""
         self._validate_amount(amount)
         source = category.casefold()
         if not source:
-            raise ValueError("Income category cannot be empty.")
+            raise InvalidAmountError("Income category cannot be empty.")
         self._balance += amount
         self._transactions.append(
             Transaction(
@@ -130,7 +157,7 @@ class Account:
     @staticmethod
     def _validate_amount(amount: float) -> None:
         if amount <= 0:
-            raise ValueError(f"Amount must be positive, got {amount}.")
+            raise InvalidAmountError(f"Amount must be positive, got {amount}.")
 
     def _over_budget_warning(self, category: str, amount: float) -> str | None:
         limit = self._budgets.get(category)

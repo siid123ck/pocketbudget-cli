@@ -16,14 +16,13 @@ def main(argv: list[str] | None = None, data_path: Path = DEFAULT_DATA_PATH) -> 
     args = parser.parse_args(argv)
     try:
         account = load_account(data_path)
-    except CorruptedStorageError as err:
+        handler: Handler = args.func
+        return handler(args, account, data_path)
+    except (CorruptedStorageError, PocketBudgetError, ValueError) as err:
         print(f"error: {err}", file=sys.stderr)
         return 1
-    handler: Handler = args.func
-    try:
-        return handler(args, account, data_path)
-    except (PocketBudgetError, ValueError) as err:
-        print(f"error: {err}", file=sys.stderr)
+    except Exception as err:
+        print(f"unexpected error: {err}", file=sys.stderr)
         return 1
 
 
