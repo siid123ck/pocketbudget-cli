@@ -88,19 +88,24 @@ class Account:
         """
         account = cls(balance=opening_balance, budgets=budgets)
         for tx in transactions:
-            if tx.category == INCOME_CATEGORY:
-                account.add_income(tx.amount)
+            if tx.kind == "income":
+                account.add_income(tx.amount, tx.category)
             else:
                 account.add_expense(tx.amount, tx.category)
             account._transactions[-1] = tx
         return account
 
-    def add_income(self, amount: float) -> None:
+    def add_income(self, amount: float, category: str = INCOME_CATEGORY) -> None:
         """Add a positive amount to the balance and record it."""
         self._validate_amount(amount)
+        source = category.casefold()
+        if not source:
+            raise ValueError("Income category cannot be empty.")
         self._balance += amount
         self._transactions.append(
-            Transaction(amount=amount, category="income", date=date.today())
+            Transaction(
+                amount=amount, category=source, date=date.today(), kind="income"
+            )
         )
 
     def add_expense(self, amount: float, category: str) -> str | None:
@@ -118,7 +123,7 @@ class Account:
         self._balance -= amount
         warning = self._over_budget_warning(key, amount)
         self._transactions.append(
-            Transaction(amount=amount, category=key, date=date.today())
+            Transaction(amount=amount, category=key, date=date.today(), kind="expense")
         )
         return warning
 

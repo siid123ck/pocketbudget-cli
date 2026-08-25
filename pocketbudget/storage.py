@@ -23,6 +23,7 @@ def save_account(account: Account, path: Path = DEFAULT_DATA_PATH) -> Path:
                 "amount": tx.amount,
                 "category": tx.category,
                 "date": tx.date.isoformat(),
+                "kind": tx.kind,
             }
             for tx in account.get_transactions()
         ],
@@ -86,4 +87,9 @@ def _parse_transaction(raw: object) -> Transaction:
     day = date.fromisoformat(raw["date"]) if isinstance(raw["date"], str) else None
     if day is None:
         raise TypeError("transaction date must be an ISO string.")
-    return Transaction(amount=amount, category=category, date=day)
+    kind = raw.get("kind")
+    if kind is None:
+        kind = "income" if category == "income" else "expense"
+    if kind not in ("income", "expense"):
+        raise TypeError(f"unknown transaction kind {kind!r}.")
+    return Transaction(amount=amount, category=category, date=day, kind=kind)

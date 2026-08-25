@@ -11,3 +11,4 @@ class Transaction:
     amount: float
     category: str
     date: date
+    kind: str = "expense"
